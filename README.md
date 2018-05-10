@@ -1,6 +1,6 @@
 # About
 
-Nodejs example that shows how to use Storyblok´s management api to sync components from one space to another.
+Nodejs example that shows how to use Storyblok's management api to sync components from one space to another.
 Useful to include it to your CI pipeline when you have a dev and a live environment.
 
 # Installation
