@@ -9,7 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "storyblok-js-client": "^1.0.6",
-    "throttled-queue": "^1.0.5"
+    "storyblok-js-client": "^1.0.15"
   }
 }
