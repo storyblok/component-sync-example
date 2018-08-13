@@ -1,5 +1,4 @@
 const StoryblokClient = require('storyblok-js-client')
-const fs = require('fs')
 
 const Storyblok = new StoryblokClient({
   oauthToken: process.env.STORYBLOK_OAUTH
@@ -19,6 +18,7 @@ const Sync = {
     await this.syncFolders()
     await this.syncRoles()
     await this.syncComponents()
+    process.exit(0)
   },
 
   async syncFolders() {
@@ -28,8 +28,6 @@ const Sync = {
       sort_by: 'slug:asc'
     })
     let syncedFolders = {}
-
-    fs.writeFileSync('./folders.json', JSON.stringify(sourceFolders.data, null, 2))
 
     for (var i = 0; i < sourceFolders.data.stories.length; i++) {
       let folder = sourceFolders.data.stories[i]
@@ -81,9 +79,8 @@ const Sync = {
     let roles = await Storyblok.get(`spaces/${sourceSpaceId}/space_roles`)
     let existingRoles = await Storyblok.get(`spaces/${targetSpaceId}/space_roles`)
 
-    fs.writeFileSync('./roles.json', JSON.stringify(roles.data, null, 2))
-
-    roles.data.space_roles.forEach((space_role) => {
+    for (var i = 0; i < roles.data.space_roles.length; i++) {
+      let space_role = roles.data.space_roles[i]
       delete space_role.id
       delete space_role.created_at
 
@@ -100,71 +97,47 @@ const Sync = {
       })
 
       let existingRole = existingRoles.data.space_roles.filter((role) => {
-        return role.name == space_role.name
+        return role.role == space_role.role
       })
       if (existingRole.length) {
-        Storyblok.put(`spaces/${targetSpaceId}/space_roles/${existingRole[0].id}`, {
-            space_role: space_role
-          })
-          .then(() => { console.log('Role synced') })
-          .catch(this.errorCb)
+        await Storyblok.put(`spaces/${targetSpaceId}/space_roles/${existingRole[0].id}`, {
+          space_role: space_role
+        })
       } else {
-        Storyblok.post(`spaces/${targetSpaceId}/space_roles`, {
-            space_role: space_role
-          })
-          .then(() => { console.log(`Role ${space_role.name} synced`) })
-          .catch(this.errorCb)
+        await Storyblok.post(`spaces/${targetSpaceId}/space_roles`, {
+          space_role: space_role
+        })
       }
-    })
+      console.log(`Role ${space_role.role} synced`)
+    }
   },
 
   async syncComponents() {
     this.targetComponents = await Storyblok.get(`spaces/${targetSpaceId}/components`)
     this.sourceComponents = await Storyblok.get(`spaces/${sourceSpaceId}/components`)
 
-    fs.writeFileSync('./components.json', JSON.stringify(this.sourceComponents.data, null, 2))
+    for (var i = 0; i < this.sourceComponents.data.components.length; i++) {
+      let component = this.sourceComponents.data.components[i]
 
-    this.componentsCount = this.sourceComponents.data.components.length
-    this.sourceComponents.data.components.forEach((component) => {
       delete component.id
       delete component.created_at
 
       // Create new component on target space
-      Storyblok.post(`spaces/${targetSpaceId}/components`, {
+      try {
+        await Storyblok.post(`spaces/${targetSpaceId}/components`, {
           component: component
         })
-        .then(this.syncedCb.bind(this))
-        .catch((err) => {
-          if (err.response.status == 422) {
-            // Update existing component if already exists
-            Storyblok.put(`spaces/${targetSpaceId}/components/${this.getTargetComponentId(component.name)}`, {
-                component: component
-              })
-              .then(this.syncedCb.bind(this))
-              .catch(this.errorCb)
-          } else {
-            this.errorCb(err)
-          }
-        })
-    })
-  },
-
-  errorCb(err) {
-    if (err.response && err.response.data) {
-      console.error(err.response.data)
-    } else {
-      console.error(err)
-    }
-  },
-
-  syncedCb(res) {
-    this.componentsSynced = this.componentsSynced + 1
-
-    console.log(`Component ${this.componentsSynced} of ${this.componentsCount} (${res.data.component.name}) synced`)
-
-    if (this.componentsCount == this.componentsSynced) {
-      console.log('All components synced')
-      process.exit(0)
+        console.log(`Component ${component.name} synced`)
+      } catch(e) {
+        if (e.response.status == 422) {
+          await Storyblok.put(`spaces/${targetSpaceId}/components/${this.getTargetComponentId(component.name)}`, {
+            component: component
+          })
+          console.log(`Component ${component.name} synced`)
+        } else {
+          console.log(`Component ${component.name} sync failed`)
+        }
+      }
     }
   },
 
@@ -176,5 +149,6 @@ const Sync = {
     return comps[0].id
   }
 }
+
 
 Sync.init()
