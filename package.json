@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "storyblok-js-client": "^1.0.15"
+    "storyblok-js-client": "^1.0.20"
   }
 }
